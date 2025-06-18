@@ -5,7 +5,7 @@ pub fn main() !void {
     var chip = Chip8.init();
     defer chip.deinit();
 
-    try chip.loadGame("games/invaders.c8");
+    try chip.loadGame("games/ufo.c8");
     try chip.setupGraphics();
 
     var timer = try std.time.Timer.start();

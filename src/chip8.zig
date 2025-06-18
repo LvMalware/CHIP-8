@@ -51,7 +51,7 @@ key: [16]u8, // HEX-based keypad
 gfx: [height * width]u8, // pixel matrix for graphics
 draw: bool, // a flag to know when we need to update the screen
 quit: bool,
-scale: c_int = 20, // scale factor for pixels: 1 chip8 pixels = scale pixels on your screen
+scale: c_int = 15, // scale factor for pixels: 1 chip8 pixels = scale pixels on your screen
 stack: [16]u16, // stack
 memory: [4096]u8, // RAM memory (4K total)
 screen: ?Window,
@@ -368,7 +368,7 @@ pub fn nextCycle(self: *Self) !void {
 
     if (self.sound_timer > 0) {
         if (self.sound_timer == 1) {
-            try self.beep(50);
+            self.beep(50);
         }
         self.sound_timer -= 1;
     }
@@ -378,11 +378,9 @@ pub fn drawGraphics(self: *Self) void {
     if (!self.draw) return;
     defer self.draw = false;
 
-    _ = c.SDL_RenderClear(self.screen.?.renderer);
     var y: c_int = 0;
     var x: c_int = 0;
     for (0..self.gfx.len) |i| {
-        defer x += self.scale;
         if (i > 0 and i % width == 0) {
             y += self.scale;
             x = 0;
@@ -399,6 +397,7 @@ pub fn drawGraphics(self: *Self) void {
             _ = c.SDL_SetRenderDrawColor(self.screen.?.renderer, 0xff, 0xff, 0xff, 255);
         }
         _ = c.SDL_RenderFillRect(self.screen.?.renderer, &rect);
+        x += self.scale;
     }
 
     _ = c.SDL_RenderPresent(self.screen.?.renderer);
@@ -418,7 +417,12 @@ pub fn setupGraphics(self: *Self) !void {
         height * self.scale,
         c.SDL_WINDOW_SHOWN,
     ) orelse return error.SDLCreateWindow;
-    const renderer = c.SDL_CreateRenderer(window, -1, c.SDL_RENDERER_ACCELERATED) orelse return error.SDLCreateRenderer;
+
+    const renderer = c.SDL_CreateRenderer(
+        window,
+        -1,
+        c.SDL_RENDERER_ACCELERATED,
+    ) orelse return error.SDLCreateRenderer;
 
     _ = c.SDL_SetHint(c.SDL_HINT_RENDER_SCALE_QUALITY, "linear");
 
@@ -447,7 +451,7 @@ const Oscilator = struct {
     }
 };
 
-pub fn beep(self: *Self, time: u32) !void {
+pub fn beep(self: *Self, time: u32) void {
     _ = .{self};
     if (c.SDL_GetAudioDeviceName(c.SDL_GetNumAudioDevices(0) - 1, 0)) |name| {
         var oscilator = Oscilator{};
@@ -462,13 +466,10 @@ pub fn beep(self: *Self, time: u32) !void {
 
         var spec: c.SDL_AudioSpec = undefined;
         const dev = c.SDL_OpenAudioDevice(name, 0, &desired, &spec, 0);
-        if (dev == 0) return error.SDLOpenAudioDevice;
-
+        if (dev == 0) return;
         c.SDL_PauseAudioDevice(dev, 0);
         c.SDL_Delay(time);
         c.SDL_PauseAudioDevice(dev, 1);
-    } else {
-        return error.SDL_GetAudioDevice;
     }
 }
 
